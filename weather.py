@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 from meteostat import Point, Daily
 import pandas as pd
 from config.locations_long_lat import get_longitude_and_latitude_of_locations
+import os
 
 def example_usage_of_meteostat():
     """
@@ -62,6 +63,7 @@ def get_all_temperature_data(start: datetime,
         dataframes.append(data)
 
     complete_data = pd.concat(dataframes)
+    complete_data.to_csv(os.path.join("data", "weather", "weather_data.csv"))
     return complete_data
 
 
