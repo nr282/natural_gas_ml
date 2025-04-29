@@ -98,6 +98,15 @@ import os
 import logging
 from dateutil.parser import parse
 from functools import reduce
+from sklearn.model_selection import train_test_split
+import numpy as np
+from sklearn.datasets import load_diabetes
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, roc_curve, auc
+from weather import get_all_temperature_data
+
 
 logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.DEBUG)
 
@@ -349,7 +358,9 @@ def format_dataframe(df: pd.DataFrame, formats):
     else:
         raise
 
+def get_names_for_time_column():
 
+    return ["Date", "Time"]
 
 def load_datasets(dataset_names: dict[str]):
     """
@@ -371,8 +382,11 @@ def load_datasets(dataset_names: dict[str]):
         formatted_df = format_dataframe(df, formats)
         time_series_set = set()
         for column in formatted_df.columns:
-
-            time_series_set.add(TimeSeries(formatted_df[column]))
+            #Don't want to add time or date column
+            if column.title() in get_names_for_time_column():
+                pass
+            else:
+                time_series_set.add(TimeSeries(formatted_df[column]))
 
         datasets[dataset_name] = time_series_set
 
@@ -402,12 +416,13 @@ def dataset_features_configuration(dataset_name):
 def merge_feature_target(feature_dataframe: FeatureDataframe,
                          target_time_series: TargetTimeSeries):
 
-
     target_time_series_values = target_time_series.get_target_series().get_series()
 
     df = feature_dataframe.merge(target_time_series_values,
                                  left_index=True,
                                  right_index=True)
+
+
     return df
 
 def develop_complete_dataframe(feature_dataset_names: list[str],
@@ -425,10 +440,12 @@ def develop_complete_dataframe(feature_dataset_names: list[str],
     #Load the datasets.
     datasets = load_datasets(feature_dataset_names)
     datasets_vals = list(reduce(lambda x, y: x.union(y), datasets.values()))
+
+
     time_series_df = TimeSeriesDataframe(datasets_vals)
 
     #Complete the FeatureDataframe.
-    feature_dataframe = FeatureDataframe(time_series_df, number_of_lags=5)
+    feature_dataframe = FeatureDataframe(time_series_df, number_of_lags=10)
     feature_dataframe = feature_dataframe.get_feature_dataframe_not_including_time_t_interpolated()
 
     #Grab the target series.
@@ -441,9 +458,107 @@ def develop_complete_dataframe(feature_dataset_names: list[str],
                                           target_dataset_series)
 
 
+
+
     training_df = merge_feature_target(feature_dataframe, target_time_series)
+    training_df["Target_Diff_Value"] = training_df[target_series_name].diff().bfill()
+    training_df["Target_Diff_Sign"] = training_df["Target_Diff_Value"].apply(lambda x: "Positive" if x > 0 else "Negative")
 
     return training_df
+
+
+def split_dataset(df: pd.DataFrame):
+
+
+
+    train, validate, test = \
+        np.split(df.sample(frac=1, random_state=42),
+                 [int(.6 * len(df)), int(.8 * len(df))])
+
+
+
+
+    train_df = pd.DataFrame(train)
+    validate_df = pd.DataFrame(validate)
+    test_df = pd.DataFrame(test)
+
+    return train_df, validate_df, test_df
+
+
+
+def train_model_with_lasso_regression(train_df: pd.DataFrame):
+    """
+    Train Model with Lasso Regression.
+
+
+    :return:
+    """
+
+
+    pass
+
+
+def filter_dataframe(completed_df, target_time_series_name):
+
+    feature_columns = list(filter(lambda x: ("lag" in x.lower() or x.lower() == target_time_series_name.lower()),
+                                  list(completed_df.columns)))
+
+
+    return completed_df[feature_columns]
+
+def train_model_with_logistic_regression(x_train_pd: pd.DataFrame,
+                                         y_train_pd: pd.DataFrame,
+                                         x_test_pd: pd.DataFrame,
+                                         y_test_pd: pd.DataFrame):
+
+    x_train = x_train_pd.to_numpy()
+    y_train = y_train_pd.to_numpy()
+    x_test = x_test_pd.to_numpy()
+    y_test = y_test_pd.to_numpy()
+
+    # Standardize features
+    scaler = StandardScaler()
+    x_train = scaler.fit_transform(x_train)
+    x_test = scaler.transform(x_test)
+
+
+    # Train the Logistic Regression model
+    model = LogisticRegression(max_iter=100000)
+    model.fit(x_train, y_train)
+
+    # Evaluate the model
+    y_pred = model.predict(x_test)
+    accuracy = accuracy_score(y_test, y_pred)
+    print("Accuracy: {:.2f}%".format(accuracy * 100))
+
+
+def run_logistic_regression_model():
+
+    #Update weather.
+    start = datetime.datetime(1997, 1, 1)
+    end = datetime.datetime(2025, 3, 31)
+    get_all_temperature_data(start, end)
+
+
+    feature_dataset_names = ["weather", "natural_gas_price_daily"]
+    target_dataset_name = "natural_gas_price_daily"
+    target_column_name = "Target_Diff_Sign"
+    df = develop_complete_dataframe(feature_dataset_names, target_dataset_name)
+    df = filter_dataframe(df, target_column_name)  # May be too brittle to future changes.
+    train_df, test_df, validate_df = split_dataset(df)
+    train_columns = set(train_df.columns)
+    df_columns = set(df.columns)
+
+    x_train_pd = train_df.drop([target_column_name], axis=1)
+    y_train_pd = train_df[target_column_name]
+
+    x_test_pd = test_df.drop([target_column_name], axis=1)
+    y_test_pd = test_df[target_column_name]
+
+    train_model_with_logistic_regression(x_train_pd,
+                                         y_train_pd,
+                                         x_test_pd,
+                                         y_test_pd)
 
 
 

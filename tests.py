@@ -2,9 +2,14 @@ import unittest
 from weather import get_all_temperature_data
 import datetime
 from natural_gas_price import load_natural_gas_prices
-from training import TimeSeries, TimeSeriesDataframe, FeatureDataframe, develop_complete_dataframe
+from training import (TimeSeries, TimeSeriesDataframe,
+                      FeatureDataframe, develop_complete_dataframe,
+                      train_model_with_logistic_regression,
+                      filter_dataframe)
 import pandas as pd
 import math
+import numpy as np
+from training import split_dataset, run_logistic_regression_model
 
 class TestNaturalGasDeepLearning(unittest.TestCase):
 
@@ -79,6 +84,24 @@ class TestNaturalGasDeepLearning(unittest.TestCase):
         self.assertTrue(all([column in ts_df.df.columns for column in ["Test_Value_1", "Test_Value_2"]]))
 
 
+    def test_performance_time_series_dataframe(self):
+        """
+        Performance testing of 10 million time series.
+
+        30 Seconds For Ten Million Time Series
+
+
+        :return:
+        """
+
+
+        ts_1 = TimeSeries(self.ser_1)
+        n = 1000000
+        ts_df = TimeSeriesDataframe([ts_1 for _ in range(n)])
+        self.assertTrue(type(ts_df.get_dataframe()) == pd.DataFrame)
+        self.assertTrue(len(ts_df.df) > 0)
+        self.assertTrue(all([column in ts_df.df.columns for column in ["Test_Value_1"]]))
+
     def test_time_series_dataframe_with_non_homogenous_time_series(self):
         #What is the goal here.
 
@@ -118,10 +141,30 @@ class TestNaturalGasDeepLearning(unittest.TestCase):
         feature_dataset_names = ["weather", "natural_gas_price_daily"]
         target_dataset_name = "natural_gas_price_daily"
         df = develop_complete_dataframe(feature_dataset_names, target_dataset_name)
+
+        henry_hub_price_time_1 = df["Henry Hub Natural Gas Spot Price Dollars per Million Btu"].iloc[1]
+        henry_hub_price_lag_1_time_2 = df["Henry Hub Natural Gas Spot Price Dollars per Million Btu_lag_1"].iloc[2]
+        self.assertEqual(henry_hub_price_lag_1_time_2, henry_hub_price_time_1)
+
         self.assertTrue(len(df) > 1000)
         self.assertTrue(len(df) < 10000)
 
+        self.assertTrue("Target_Diff_Value" in df.columns)
+        self.assertTrue("Target_Diff_Sign" in df.columns)
 
+        number_of_negative = len(df[df["Target_Diff_Sign"] == "Positive"])
+        number_of_positive = len(df[df["Target_Diff_Sign"] == "Negative"])
+        n = len(df)
+
+        self.assertTrue((number_of_negative + number_of_positive == n))
+        self.assertTrue(number_of_positive > 0.4 * n)
+        self.assertTrue(number_of_negative > 0.4 * n)
+
+
+    def test_split_of_training_dataset(self):
+
+        
+        run_logistic_regression_model()
 
 
 

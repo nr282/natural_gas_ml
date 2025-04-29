@@ -15,6 +15,7 @@ import pandas as pd
 from config.locations_long_lat import get_longitude_and_latitude_of_locations
 import os
 
+
 def example_usage_of_meteostat():
     """
     This is an example of collecting weather data using the meteostat API.
