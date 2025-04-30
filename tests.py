@@ -9,7 +9,7 @@ from training import (TimeSeries, TimeSeriesDataframe,
 import pandas as pd
 import math
 import numpy as np
-from training import split_dataset, run_logistic_regression_model
+from training import split_dataset, run_classification_model
 
 class TestNaturalGasDeepLearning(unittest.TestCase):
 
@@ -161,10 +161,14 @@ class TestNaturalGasDeepLearning(unittest.TestCase):
         self.assertTrue(number_of_negative > 0.4 * n)
 
 
-    def test_split_of_training_dataset(self):
+    def test_logistic_regression_classification(self):
 
-        
-        run_logistic_regression_model()
+
+        run_classification_model(method="logistic_regression")
+
+
+    def test_neural_network_classification(self):
+        run_classification_model(method="neural_network")
 
 
 

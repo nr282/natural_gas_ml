@@ -106,6 +106,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, roc_curve, auc
 from weather import get_all_temperature_data
+from sklearn.neural_network import MLPClassifier
 
 
 logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.DEBUG)
@@ -244,7 +245,7 @@ class FeatureDataframe(object):
 
     def __calculate_feature_dataframe_not_including_time_t_interpolated(self):
 
-        return self.feature_dataframe_not_including_time_t.interpolate().ffill().bfill()
+        return self.feature_dataframe_not_including_time_t.interpolate().ffill().dropna()
 
     def __calculate_feature_dataframe_not_including_time_t_dropna(self):
         return self.feature_dataframe_not_including_time_t.dropna()
@@ -445,7 +446,7 @@ def develop_complete_dataframe(feature_dataset_names: list[str],
     time_series_df = TimeSeriesDataframe(datasets_vals)
 
     #Complete the FeatureDataframe.
-    feature_dataframe = FeatureDataframe(time_series_df, number_of_lags=10)
+    feature_dataframe = FeatureDataframe(time_series_df, number_of_lags=3)
     feature_dataframe = feature_dataframe.get_feature_dataframe_not_including_time_t_interpolated()
 
     #Grab the target series.
@@ -523,16 +524,48 @@ def train_model_with_logistic_regression(x_train_pd: pd.DataFrame,
 
 
     # Train the Logistic Regression model
-    model = LogisticRegression(max_iter=100000)
+    model = LogisticRegression(max_iter=100000,
+                               class_weight="balanced",
+                               solver="newton-cholesky")
+
+
     model.fit(x_train, y_train)
 
     # Evaluate the model
     y_pred = model.predict(x_test)
     accuracy = accuracy_score(y_test, y_pred)
-    print("Accuracy: {:.2f}%".format(accuracy * 100))
+    print("Accuracy: {:.2f}% \n ".format(accuracy * 100))
 
 
-def run_logistic_regression_model():
+def train_model_with_neural_network(x_train_pd: pd.DataFrame,
+                                         y_train_pd: pd.DataFrame,
+                                         x_test_pd: pd.DataFrame,
+                                         y_test_pd: pd.DataFrame):
+
+
+    x_train = x_train_pd.to_numpy()
+    y_train = y_train_pd.to_numpy()
+    x_test = x_test_pd.to_numpy()
+    y_test = y_test_pd.to_numpy()
+
+    # Standardize features
+    scaler = StandardScaler()
+    x_train = scaler.fit_transform(x_train)
+    x_test = scaler.transform(x_test)
+
+    clf = MLPClassifier(solver='lbfgs', alpha=1e-2,
+                        hidden_layer_sizes=(5, 5), random_state=1,
+                        max_iter=100000)
+
+    clf.fit(x_train, y_train)
+
+    # Evaluate the model
+    y_pred = clf.predict(x_test)
+    accuracy = accuracy_score(y_test, y_pred)
+    print("Neural Network Accuracy: {:.2f}% \n ".format(accuracy * 100))
+
+
+def run_classification_model(method = "logistic_regression"):
 
     #Update weather.
     start = datetime.datetime(1997, 1, 1)
@@ -555,10 +588,44 @@ def run_logistic_regression_model():
     x_test_pd = test_df.drop([target_column_name], axis=1)
     y_test_pd = test_df[target_column_name]
 
-    train_model_with_logistic_regression(x_train_pd,
-                                         y_train_pd,
-                                         x_test_pd,
-                                         y_test_pd)
+    negative_train = y_train_pd.str.count("Negative").sum()
+    positive_train = y_train_pd.str.count("Positive").sum()
+
+    logging.info(f"Percent Negative Days {negative_train / (negative_train + positive_train) * 100}%")
+    logging.info(f"Percent Positive Days {positive_train / (negative_train + positive_train) * 100}%")
+    logging.info(f"Number of datapoints in train dataframe {len(train_df)}")
+
+
+
+
+    negative_test = y_test_pd.str.count("Negative").sum()
+    positive_test = y_test_pd.str.count("Positive").sum()
+
+    logging.info(f"Percent Negative Days {negative_test / (negative_test + positive_test) * 100}%")
+    logging.info(f"Percent Positive Days {positive_test / (negative_test + positive_test) * 100}%")
+    logging.info(f"Number of datapoints in test dataframe {len(test_df)}")
+
+
+
+
+
+
+
+
+
+    if method == "neural_network":
+        train_model_with_neural_network(x_train_pd,
+                                             y_train_pd,
+                                             x_test_pd,
+                                             y_test_pd)
+    elif method == "logistic_regression":
+        train_model_with_logistic_regression(x_train_pd,
+                                        y_train_pd,
+                                        x_test_pd,
+                                        y_test_pd)
+    else:
+        pass
+
 
 
 
