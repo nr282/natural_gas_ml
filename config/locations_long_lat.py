@@ -24,6 +24,7 @@ def get_longitude_and_latitude_of_locations():
         ("Birmingham", "Alabama"): (33.51, -86.81),
         ("Seattle", "Washington"): (47.6061, -122.33),
         ("Philadelphia", "Pennsylvania"): (39.95, -75.16),
+        ("Phoenix", "Arizona"): (33.4482, -112.0777) #A big addition to the model.
     }
 
     #d = {

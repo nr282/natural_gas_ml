@@ -464,7 +464,7 @@ def develop_complete_dataframe(feature_dataset_names: list[str],
     training_df = merge_feature_target(feature_dataframe, target_time_series)
     training_df["Target_Diff_Value"] = training_df[target_series_name].diff().bfill()
     training_df["Target_Diff_Sign"] = training_df["Target_Diff_Value"].apply(lambda x: "Positive" if x > 0 else "Negative")
-
+    
     return training_df
 
 
@@ -535,6 +535,8 @@ def train_model_with_logistic_regression(x_train_pd: pd.DataFrame,
     y_pred = model.predict(x_test)
     accuracy = accuracy_score(y_test, y_pred)
     print("Accuracy: {:.2f}% \n ".format(accuracy * 100))
+
+
 
 
 def train_model_with_neural_network(x_train_pd: pd.DataFrame,
